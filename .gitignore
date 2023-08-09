@@ -1,2 +1,5 @@
 a.out
-
+/db/
+/output_files/
+*.ch8.hex
+*.pdf

@@ -43,9 +43,12 @@ localparam WHOLE_FRAME_V_LN = SYNC_PULSE_V_LN + BACK_PORCH_V_LN + VISIBLE_V_LN +
 localparam DATA_STARTS_V_LN = SYNC_PULSE_V_LN + BACK_PORCH_V_LN;
 localparam DATA_ENDS_V_LN = DATA_STARTS_V_LN + VISIBLE_V_LN;
 
+localparam H_PX_COUNTER_SIZE = $clog2(WHOLE_LINE_H_PX);
+localparam V_LN_COUNTER_SIZE = $clog2(WHOLE_FRAME_V_LN);
+
 // Counters for the current position on the screen
-reg [$clog2(WHOLE_LINE_H_PX)-1:0] h_px_counter;
-reg [$clog2(WHOLE_FRAME_V_LN)-1:0] v_ln_counter;
+reg [H_PX_COUNTER_SIZE-1:0] h_px_counter;
+reg [V_LN_COUNTER_SIZE-1:0] v_ln_counter;
 
 // HSync/VSync should be low during the sync pulse region
 assign hsync = (h_px_counter >= SYNC_PULSE_H_PX);
@@ -75,13 +78,13 @@ always @(posedge pixel_clk_7_425mhz or posedge rst) begin: vga_pixel
         // Update counters
         if (h_px_counter != (WHOLE_LINE_H_PX - 1)) begin
             // Increment H counter if not at the end yet
-            h_px_counter <= h_px_counter + 1;
+            h_px_counter <= h_px_counter + 1'b1;
         end else begin
             // Reset H counter
             h_px_counter <= 0;
             if (v_ln_counter != (WHOLE_FRAME_V_LN - 1)) begin
                 // Increment V counter if not at the end yet
-                v_ln_counter <= v_ln_counter + 1;
+                v_ln_counter <= v_ln_counter + 1'b1;
             end else begin
                 // Reset V counter
                 v_ln_counter <= 0;

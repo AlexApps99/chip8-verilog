@@ -1,7 +1,6 @@
-`include "rng.v"
-`include "bcd.v"
+//`include "rng.v"
+//`include "bcd.v"
 
-// TODO one clock for instructions, another clock for waiting for next frame?
 module chip8 (
     input wire rst,
     // Pulses at 60 * 9 Hz per instruction?
@@ -9,11 +8,38 @@ module chip8 (
     // Pulses at 60 Hz
     input wire frame_clk,
     input wire [15:0] input_keys,
+    output reg clear_newest_key_down,
     input wire [4:0] newest_key_down,
     // Display data (64x32, row-major)
     output reg [2047:0] display,
     output wire buzzer
 );
+
+// Double-dabble BCD algorithm for a byte, returning a byte for each 10s digit
+// [hundreds (byte, 0-9)][tens (byte, 0-9)][ones (byte, 0-9)]
+function [23:0] bcd_from_byte(input [7:0] num);
+    begin: bcd_scr_function_inner
+        integer bcd_i;
+        reg [19:0] bcd_scr;
+        bcd_scr = num << 1;
+        for (bcd_i = 0; bcd_i < 7; bcd_i = bcd_i + 1) begin
+            if (bcd_scr[11:8] >= 5) begin
+                bcd_scr[11:8] = bcd_scr[11:8] + 4'h3;
+            end
+
+            if (bcd_scr[15:12] >= 5) begin
+                bcd_scr[15:12] = bcd_scr[15:12] + 4'h3;
+            end
+
+            if (bcd_scr[19:16] >= 5) begin
+                bcd_scr[19:16] = bcd_scr[19:16] + 4'h3;
+            end
+
+            bcd_scr = bcd_scr << 1;
+        end
+        bcd_from_byte = {4'b0, bcd_scr[16 +: 4], 4'b0, bcd_scr[12 +: 4], 4'b0, bcd_scr[8 +: 4]};
+    end
+endfunction
 
 localparam STACK_SIZE = 16;
 
@@ -39,21 +65,17 @@ reg [11:0] PC;
 reg [7:0] delay_timer;
 reg [7:0] sound_timer;
 
-// For input change detection
-reg block_for_input;
-reg [4:0] last_newest_key_down;
-
 assign buzzer = (sound_timer != 8'b0);
 
-wire [7:0] rand;
+wire [7:0] rand_num;
 rng rng_inst (
-    .clk(timer_clk),
+    .clk(instruction_clk),
     .rst(rst),
-    .x(rand)
+    .x(rand_num)
 );
 
 initial begin: begin_init
-    integer i, j;
+    integer i;
 
     // Clear display
     display <= 'b0;
@@ -62,8 +84,8 @@ initial begin: begin_init
     for (i = 0; i < 4096; i = i + 1) begin
         memory[i] <= 8'b0;
     end
-    $readmemh("character_data.hex", memory, 80);
-    $readmemb("ibm.ch8", 512);
+    $readmemh("character_data.hex", memory, 80, 80 + 64);
+    $readmemh("ibm.ch8.hex", memory, 512);
 
     for (i = 0; i < 16; i = i + 1) begin
         VN[i] <= 8'b0;
@@ -79,29 +101,28 @@ initial begin: begin_init
     delay_timer <= 8'b0;
     sound_timer <= 8'b0;
 
-    block_for_input <= 0;
-    last_newest_key_down <= 16;
+    clear_newest_key_down <= 0;
 end
 
-// Synchronous logic (should avoid blocking assignment)
-always @(posedge instruction_clk) begin: instruction_clk_block
-    reg [7:0] byte_0, byte_1;
-    reg [3:0] nibble_0, nibble_1, nibble_2, nibble_3;
-    reg [15:0] op;
-    integer i, bcd_i;
-    // BCD Scratchspace
-    reg [19:0] bcd_scr;
+wire [15:0] op;
+wire [7:0] byte_0, byte_1;
+wire [3:0] nibble_0, nibble_1, nibble_2, nibble_3;
+assign byte_0 = memory[PC];
+assign byte_1 = memory[PC + 1];
+assign nibble_0 = byte_0[7:4];
+assign nibble_1 = byte_0[3:0];
+assign nibble_2 = byte_1[7:4];
+assign nibble_3 = byte_1[3:0];
+assign op = {byte_0, byte_1};
 
-    byte_0 = memory[PC];
-    nibble_0 = memory[PC][7:4];
-    nibble_1 = memory[PC][3:0];
-    byte_1 = memory[PC + 1];
-    nibble_2 = memory[PC + 1][7:4];
-    nibble_3 = memory[PC + 1][3:0];
-    op = {byte_0, byte_1};
+
+// Synchronous logic (should avoid blocking assignment)
+always @(posedge rst or posedge instruction_clk) begin: instruction_clk_block
+    integer i;
+
 
     // Increment the program counter, if nothing else happens
-    PC <= PC + 2;
+    PC <= PC + 12'h2;
 
     case (nibble_0)
         4'h0 : case (op)
@@ -113,7 +134,7 @@ always @(posedge instruction_clk) begin: instruction_clk_block
                 // Return from subroutine
                 if (stack_pointer <= STACK_SIZE) begin
                     PC <= stack[stack_pointer-1];
-                    stack_pointer <= stack_pointer - 1;
+                    stack_pointer <= stack_pointer - 1'b1;
                 end
             end
         endcase
@@ -124,27 +145,27 @@ always @(posedge instruction_clk) begin: instruction_clk_block
         4'h2 : begin
             // Call subroutine
             if (stack_pointer < STACK_SIZE) begin
-                stack[stack_pointer] <= PC + 2;
+                stack[stack_pointer] <= PC + 12'h2;
                 PC <= op[11:0];
-                stack_pointer <= stack_pointer + 1;
+                stack_pointer <= stack_pointer + 1'b1;
             end
         end
         4'h3 : begin
             // Skip if VX == NN
             if (VN[nibble_1] == byte_1) begin
-                PC <= PC + 4;
+                PC <= PC + 12'h4;
             end
         end
         4'h4 : begin
             // Skip if VX != NN
             if (VN[nibble_1] != byte_1) begin
-                PC <= PC + 4;
+                PC <= PC + 12'h4;
             end
         end
         4'h5 : begin
             // Skip if VX == VY
             if (VN[nibble_1] == VN[nibble_2]) begin
-                PC <= PC + 4;
+                PC <= PC + 12'h4;
             end
         end
         4'h6 : begin
@@ -173,30 +194,34 @@ always @(posedge instruction_clk) begin: instruction_clk_block
                 VN[nibble_1] <= VN[nibble_1] ^ VN[nibble_2];
             end
             4'h4 : begin
-                // TODO Vx += Vy (sets carry VF)
-                VN[nibble_1] <= VN[nibble_1] + VN[nibble_2];
+                // x += Vy (sets carry VF)
+                {VN[15], VN[nibble_1]} <= VN[nibble_1] + VN[nibble_2];
             end
             4'h5 : begin
-                // TODO Vx -= Vy (sets borrow VF)
+                // Vx -= Vy (sets borrow VF)
                 VN[nibble_1] <= VN[nibble_1] - VN[nibble_2];
+                VN[15] <= (VN[nibble_1] >= VN[nibble_2]);
             end
             4'h6 : begin
-                // TODO Vx >>= 1 (sets overflow VF)
+                // Vx >>= 1 (sets overflow VF)
                 VN[nibble_1] <= VN[nibble_1] >> 1;
+                VN[15] <= VN[nibble_1][0];
             end
             4'h7 : begin
-                // TODO Vx = Vy - Vx (sets borrow VF)
+                // Vx = Vy - Vx (sets borrow VF)
                 VN[nibble_1] <= VN[nibble_2] - VN[nibble_1];
+                VN[15] <= (VN[nibble_2] >= VN[nibble_1]);
             end
             4'hE : begin
-                // TODO Vx <<= 1 (sets overflow VF)
+                // Vx <<= 1 (sets overflow VF)
                 VN[nibble_1] <= VN[nibble_1] << 1;
+                VN[15] <= VN[nibble_1][7];
             end
         endcase
         4'h9 : begin
             // Skip if VX != VY
             if (VN[nibble_1] != VN[nibble_2]) begin
-                PC <= PC + 4;
+                PC <= PC + 12'h4;
             end
         end
         4'hA : begin
@@ -209,7 +234,7 @@ always @(posedge instruction_clk) begin: instruction_clk_block
         end
         4'hC : begin
             // RNG
-            VN[nibble_1] <= (rand & byte_1);
+            VN[nibble_1] <= (rand_num & byte_1);
         end
         4'hD : begin
             // TODO Draw (sets VF)
@@ -218,13 +243,13 @@ always @(posedge instruction_clk) begin: instruction_clk_block
             8'h9E : begin
                 // Skip if key in VX is pressed
                 if ((input_keys & (1 << VN[nibble_1])) != 0) begin
-                    PC <= PC + 4;
+                    PC <= PC + 12'h4;
                 end
             end
             8'hA1 : begin
                 // Skip if key in VX is not pressed
                 if ((input_keys & (1 << VN[nibble_1])) == 0) begin
-                    PC <= PC + 4;
+                    PC <= PC + 12'h4;
                 end
             end
         endcase
@@ -235,13 +260,11 @@ always @(posedge instruction_clk) begin: instruction_clk_block
             end
             8'h0A : begin
                 // Block for key press, then store in VX
-                if (block_for_input != 0 && newest_key_down != last_newest_key_down && newest_key_down != 16) begin
+                if (clear_newest_key_down != 0 && newest_key_down < 16) begin
                     VN[nibble_1] <= newest_key_down;
-                    block_for_input <= 0;
-                    last_newest_key_down <= 16;
+                    clear_newest_key_down <= 0;
                 end else begin
-                    block_for_input <= 1;
-                    last_newest_key_down <= newest_key_down;
+                    clear_newest_key_down <= 1;
                     // Don't move on yet
                     PC <= PC;
                 end
@@ -260,33 +283,11 @@ always @(posedge instruction_clk) begin: instruction_clk_block
             end
             8'h29 : begin
                 // I = sprite_addr of hex character
-                I <= 80 + ((4'hF & VN[nibble_1]) * 5);
+                I <= 12'd80 + (8'd5 * VN[nibble_1][3:0]);
             end
             8'h33 : begin
                 // BCD
-
-                // I don't really like the kludginess that comes from just dumping this in a switch case.
-                // I'm also not sure how safe mixing blocking/non-blocking assignments is.
-                bcd_scr = VN[nibble_1] << 1;
-
-                for (bcd_i = 0; bcd_i < 7; bcd_i = bcd_i + 1) begin
-                    if (bcd_scr[11:8] >= 5) begin
-                        bcd_scr[11:8] = bcd_scr[11:8] + 3;
-                    end
-
-                    if (bcd_scr[15:12] >= 5) begin
-                        bcd_scr[15:12] = bcd_scr[15:12] + 3;
-                    end
-
-                    if (bcd_scr[19:16] >= 5) begin
-                        bcd_scr[19:16] = bcd_scr[19:16] + 3;
-                    end
-
-                    bcd_scr = bcd_scr << 1;
-                end
-                memory[I] <= bcd_scr[8 +: 4];
-                memory[I+1] <= bcd_scr[12 +: 4];
-                memory[I+2] <= bcd_scr[16 +: 4];
+                {memory[I], memory[I+1], memory[I+2]} <= bcd_from_byte(VN[nibble_1]);
             end
             8'h55 : begin
                 // Stores V0 to VX to memory from I
@@ -304,23 +305,15 @@ always @(posedge instruction_clk) begin: instruction_clk_block
             end
         endcase
     endcase
-    
 end
 
-//always @(posedge frame_clk) begin: frame_block
-//    if (delay_timer != 8'b0) begin
-//        delay_timer <= delay_timer - 1;
-//    end
-//    if (sound_timer != 8'b0) begin
-//        sound_timer <= sound_timer - 1;
-//    end
-//end
-
-always @(posedge rst) begin: rst_block
-    // TODO combine with the clock one, and initialize everything?
+always @(posedge frame_clk) begin: frame_block
+    if (delay_timer != 8'b0) begin
+        delay_timer <= delay_timer - 1;
+    end
+    if (sound_timer != 8'b0) begin
+        sound_timer <= sound_timer - 1;
+    end
 end
-
-//always @* begin
-//end
 
 endmodule

@@ -18,7 +18,7 @@ reg [$clog2(DIVISOR)-1:0] counter;
 // Clock should be high if counter is < 50%
 assign clk_out = counter < (DIVISOR / 2);
 
-always @(posedge rst or posedge clk_in) begin
+always @(posedge rst or posedge clk_in) begin: clk_div_block
     if (rst) begin
         // Zero counter if resetting
         counter <= 0;
@@ -27,7 +27,7 @@ always @(posedge rst or posedge clk_in) begin
         counter <= 0;
     end else begin
         // Increment counter
-        counter <= counter + 1;
+        counter <= counter + 1'b1;
     end
 end
 

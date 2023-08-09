@@ -1,10 +1,10 @@
 // Chip-8 FPGA implementation
 // "It's a work in progress"
 
-`include "ps2_kb.v"
-`include "vga.v"
-`include "chip8.v"
-`include "clk_div.v"
+//`include "ps2_kb.v"
+//`include "vga.v"
+//`include "chip8.v"
+//`include "clk_div.v"
 
 module main(
     // Reset button (initializes everything)
@@ -56,6 +56,7 @@ clk_div #(123750) clk_div_chip8_frame_inst (
 );
 
 wire [4:0] newest_key_down;
+wire clear_newest_key_down;
 wire [15:0] input_keys;
 // Display data (64x32, row-major)
 wire [2047:0] display;
@@ -85,6 +86,7 @@ ps2_kb ps2_kv_inst(
     .data_pin(ps2_data_pin),
     .clk_pin(ps2_clk_pin),
     .input_keys(input_keys),
+    .clear_newest_key_down(clear_newest_key_down),
     .newest_key_down(newest_key_down)
 );
 
@@ -94,6 +96,7 @@ chip8 chip8_inst(
     .instruction_clk(chip8_instruction_clk_540hz),
     .frame_clk(chip8_frame_clk_60hz),
     .input_keys(input_keys),
+    .clear_newest_key_down(clear_newest_key_down),
     .newest_key_down(newest_key_down),
     .display(display),
     .buzzer(buzzer)
