@@ -1,7 +1,7 @@
 // Divides a clock signal, approximating ~50% duty cycle
 module clk_div #(
     // The divisor for the input clock
-    parameter DIVISOR = 1
+    parameter DIVISOR = 'd2
 )
 (
     // Reset (starts the cycle again, initially high)
@@ -16,7 +16,7 @@ module clk_div #(
 reg [$clog2(DIVISOR)-1:0] counter;
 
 // Clock should be high if counter is < 50%
-assign clk_out = counter < (DIVISOR / 2);
+assign clk_out = counter < (DIVISOR >> 1);
 
 always @(posedge rst or posedge clk_in) begin: clk_div_block
     if (rst) begin

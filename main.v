@@ -26,12 +26,12 @@ module main(
     output wire vga_vsync,
 
     // Sound buzzer using PWM
-    output wire buzzer_pwm,
+    output wire buzzer_pwm
 
     // TODO SD Card
-    output reg sd_clk,
-    inout sd_dat0,
-    inout sd_cmd
+    //output reg sd_clk,
+    //inout sd_dat0,
+    //inout sd_cmd
 );
 
 // Clocks
@@ -50,14 +50,6 @@ clk_div #(13750) clk_div_chip8_instruction_inst(
     .rst(rst),
     .clk_in(vga_pixel_clk_7_425mhz),
     .clk_out(chip8_instruction_clk_540hz)
-);
-
-// 60 Hz Chip-8 frame clock
-wire chip8_frame_clk_60hz;
-clk_div #(123750) clk_div_chip8_frame_inst (
-    .rst(rst),
-    .clk_in(vga_pixel_clk_7_425mhz),
-    .clk_out(chip8_frame_clk_60hz)
 );
 
 wire [4:0] newest_key_down;
@@ -81,7 +73,9 @@ vga vga_inst(
     .display(display),
     .color(vga_color),
     .hsync(vga_hsync),
-    .vsync(vga_vsync)
+    .vsync(vga_vsync),
+    .in_hblank(),
+    .in_vblank()
 );
 
 // PS/2 keyboard module
@@ -99,7 +93,6 @@ ps2_kb ps2_kv_inst(
 chip8 chip8_inst(
     .rst(rst),
     .instruction_clk(chip8_instruction_clk_540hz),
-    .frame_clk(chip8_frame_clk_60hz),
     .input_keys(input_keys),
     .clear_newest_key_down(clear_newest_key_down),
     .newest_key_down(newest_key_down),

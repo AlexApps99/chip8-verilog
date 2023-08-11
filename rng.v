@@ -9,19 +9,28 @@ module rng (
     output reg [7:0] x
 );
 
+function [7:0] next_rand_num(input [7:0] rand_num);
+    reg [7:0] x;
+
+    x = rand_num;
+    x = x ^ (x << 4);
+    x = x ^ (x >> 3);
+    x = x ^ (~x << 1);
+    x = x ^ (x << 3);
+
+    next_rand_num = x;
+endfunction
+
 // The PRNG seed
 parameter SEED = 8'h4;
 
-// Using blocking assignment feels fishy, but it does use sequential calculation, so I'm not sure...
 always @(posedge rst or posedge clk) begin: rng_block
     if (rst) begin
         // Initialize byte with seed
-        x = SEED;
+        x <= SEED;
     end else begin
-        // basic XORshift RNG
-        x = x ^ (x << 13);
-        x = x ^ (x >> 17);
-        x = x ^ (x << 5);
+        // basic XORshift RNG with mostly made-up constants
+        x <= next_rand_num(x);
     end
 end
 

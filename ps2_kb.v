@@ -79,7 +79,7 @@ always @(negedge clk or posedge rst or posedge clear_newest_key_down) begin: ps2
             end
         end else if (bit_counter <= 8) begin
             // Save data bits
-            current_byte <= current_byte | (data_pin << (bit_counter - 1));
+            current_byte[bit_counter[2:0]] <= data_pin;
         end else if (bit_counter == 9) begin
             // Parity bit
             // Mark current byte is invalid if parity doesn't match
@@ -102,8 +102,8 @@ always @(negedge clk or posedge rst or posedge clear_newest_key_down) begin: ps2
                     prev_byte_was_release <= 1;
                 end else begin
                     if (current_keycode < 16) begin
-                        input_keys[current_keycode] <= ~prev_byte_was_release;
-                        if (!prev_byte_was_release && !input_keys[current_keycode]) begin
+                        input_keys[current_keycode[3:0]] <= ~prev_byte_was_release;
+                        if (!prev_byte_was_release && !input_keys[current_keycode[3:0]]) begin
                             newest_key_down <= current_keycode;
                         end
                     end

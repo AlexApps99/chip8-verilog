@@ -56,6 +56,11 @@ assign vsync = (v_ln_counter >= SYNC_PULSE_V_LN);
 assign in_hblank = !(h_px_counter >= DATA_STARTS_H_PX && h_px_counter < DATA_ENDS_H_PX);
 assign in_vblank = !(v_ln_counter >= DATA_STARTS_V_LN && v_ln_counter < DATA_ENDS_V_LN);
 
+function [10:0] display_index(input [5:0] h_offset, input [4:0] v_offset);
+    // h_offset is reversed because the left-most pixel is the most significant byte of the line
+    display_index = {v_offset, ~h_offset};
+endfunction
+
 always @(posedge pixel_clk_7_425mhz or posedge rst) begin: vga_pixel
     if (rst) begin
         // Set counters/color to zero on reset
@@ -66,10 +71,7 @@ always @(posedge pixel_clk_7_425mhz or posedge rst) begin: vga_pixel
         if (!in_vblank && !in_hblank) begin
             // Draw pixel data corresponding to current position on screen
             // Each data pixel is shown on 2 horizontal VGA pixels and 20 vertical VGA pixels
-
-            // Using OR seems OK, because the column offset is in multiples of 64, and the row offset is always less than 64.
-            // I'm not that pleased with how confusing this line of code is, though
-            color <= display[((h_px_counter-DATA_STARTS_H_PX) >> 1) | ((((v_ln_counter-DATA_STARTS_V_LN) >> 2) / 5) << 6)];
+            color <= display[display_index(6'((h_px_counter-DATA_STARTS_H_PX[H_PX_COUNTER_SIZE-1:0]) >> 1), 5'(((v_ln_counter - DATA_STARTS_V_LN[V_LN_COUNTER_SIZE-1:0]) >> 2)/5))];
         end else begin
             // Not in a drawable area, so just do black
             color <= 0;
