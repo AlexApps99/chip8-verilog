@@ -1,12 +1,13 @@
 # Verilog Chip-8 :)
-## Unimplemented:
-- Draw opcode
-- VF flag
+## TODO
+- Boot loader/game switching process
+- SD card IO to load different games
 - Reset
-- Timers counting down
+- Draw should be tied to VSYNC
 
-## Nice to look into
-- Testing code using test-suite
-- https://chip8.gulrak.net/ seems to document opcode ambiguities
-- DRAW should wait for VBLANK (gonna skip this for now)
-- Optimization/code cleanup?
+## Testing
+I have vaguely tested the Chip-8 functionality in Verilator simulator, but everything else (e.g I/O) I'm probably just going to hope for the best.
+
+## Optimization
+Not really sure how to improve upon this. In Quartus II on my laptop, none of the compilation attempts have finished, despite running it for hours. Maybe there's an undetected fundamental problem, or maybe it just has rubbish Linux support.
+
