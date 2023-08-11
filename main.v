@@ -26,7 +26,12 @@ module main(
     output wire vga_vsync,
 
     // Sound buzzer using PWM
-    output wire buzzer_pwm
+    output wire buzzer_pwm,
+
+    // TODO SD Card
+    output reg sd_clk,
+    inout sd_dat0,
+    inout sd_cmd
 );
 
 // Clocks

@@ -54,6 +54,21 @@ function [64:0] draw_line(input [0:5] x, input [0:7] sprite, input [63:0] displa
     end
 endfunction
 
+function [2048:0] draw_all(input [0:5] x, input [0:4] y, input [0:14] sprite, input [2047:0] display);
+    integer i;
+    reg vf;
+    reg [2047:0] display_2;
+    vf = 1'b0;
+    display_2 = display;
+
+    for (i = 0; i < 15; i = i + 1) begin
+        reg vf_temp;
+        {vf_temp, display[(y << 6) +: 64]} = draw_line(x, sprite[i], display[(y << 6) +: 64]);
+        vf = vf | vf_temp;
+    end
+    draw_all = {vf, display_2};
+endfunction
+
 localparam STACK_SIZE = 16;
 
 // RAM (note that the first 512 bytes are unused)
@@ -249,10 +264,24 @@ always @(posedge rst or posedge instruction_clk) begin: instruction_clk_block
             4'hD : begin
                 // Draw (sets VF)
                 // Up to 15 lines of 8 pixels
-                // TODO this is only setting VF if the last line overlaps
-                for (i = 0; i < nibble_3; i = i + 1) begin
-                    {VN[15], display[(VN[nibble_2][4:0] << 6) +: 64]} <= draw_line(VN[nibble_1][5:0], memory[I + i], display[(VN[nibble_2][4:0] << 6) +: 64]);
-                end
+                // Really stupid implementation, could probably be done better with SystemVerilog
+                {VN[15], display} <= draw_all(VN[nibble_1][5:0], VN[nibble_2][4:0], {
+                    memory[I+14],
+                    memory[I+13],
+                    memory[I+12],
+                    memory[I+11],
+                    memory[I+10],
+                    memory[I+9],
+                    memory[I+8],
+                    memory[I+7],
+                    memory[I+6],
+                    memory[I+5],
+                    memory[I+4],
+                    memory[I+3],
+                    memory[I+2],
+                    memory[I+1],
+                    memory[I]
+                }, display);
             end
             4'hE : case (byte_1)
                 8'h9E : begin
