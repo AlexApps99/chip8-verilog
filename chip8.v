@@ -60,21 +60,25 @@ function [64:0] draw_line(input [5:0] x, input [7:0] sprite, input [63:0] displa
 endfunction
 
 // for debugging
-//task show_display(input [2047:0] display);
-//    integer row;
-//    begin
-//        for (row = 0; row < 32; row = row + 1) begin
-//            $display("%b", display[row << 6 +: 64]);
-//        end
-//    end
-//endtask
+`ifdef VERILATOR
+task show_display(input [2047:0] display);
+    integer row;
+    begin
+        for (row = 0; row < 32; row = row + 1) begin
+            $display("%b", display[row << 6 +: 64]);
+        end
+    end
+endtask
+`endif
 
 // 8-bit VF flag, new display data
 function [2055:0] draw_all(input [5:0] x, input [4:0] y, input [15*8-1:0] sprite, input [2047:0] display);
     integer i;
     reg vf;
     reg [2047:0] display_2;
-    //$display("DRAWING X:%H Y:%H %H", x, y, sprite);
+    `ifdef VERILATOR
+    $display("DRW X:%H Y:%H S:%H", x, y, sprite);
+    `endif
     vf = 1'b0;
     display_2 = display;
 
@@ -83,7 +87,9 @@ function [2055:0] draw_all(input [5:0] x, input [4:0] y, input [15*8-1:0] sprite
         {vf_temp, display_2[{y + i[3:0], 6'b0} +: 64]} = draw_line(x, sprite[{i[3:0], 3'b0} +: 8], display_2[{y + i[3:0], 6'b0} +: 64]);
         vf = vf | vf_temp;
     end
-    //show_display(display_2);
+    `ifdef VERILATOR
+    show_display(display_2);
+    `endif
     draw_all = {{7'b0, vf}, display_2};
 endfunction
 
@@ -144,7 +150,7 @@ always @(posedge rst or posedge instruction_clk) begin: instruction_clk_block
         // Clear and initialize memory
         memory <= '{default: '0};
         // TODO load from SD card
-        $readmemh("character_data.hex", memory, 80, 80 + 64);
+        $readmemh("character_data.hex", memory, 80, 80 + 80);
         $readmemh("chip8-test-suite/bin/1-chip8-logo.ch8.hex", memory, 512);
 
         VN <= '0;

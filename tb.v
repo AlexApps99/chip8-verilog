@@ -38,7 +38,7 @@ initial begin: tb_block
     #926
 
     // hack
-    $readmemh("character_data.hex", chip8_inst.memory, 80, 80 + 64);
+    $readmemh("character_data.hex", chip8_inst.memory, 80, 80 + 80);
     $readmemh("chip8-test-suite/bin/4-flags.ch8.hex", chip8_inst.memory, 512);
     $display("PC:%H OP:%H VN:%H I:%H SP:%H", chip8_inst.PC, chip8_inst.op, chip8_inst.VN, chip8_inst.I, chip8_inst.stack_pointer);
 
