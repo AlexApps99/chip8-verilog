@@ -39,6 +39,12 @@ function [23:0] bcd_from_byte(input [7:0] num);
     end
 endfunction
 
+function carry_bit_from_add(input [7:0] a, input [7:0] b);
+    reg [8:0] add_result;
+    add_result = {1'b0, VN[nibble_1]} + {1'b0, VN[nibble_2]};
+    carry_bit_from_add = add_result[8];
+endfunction
+
 function [64:0] draw_line(input [5:0] x, input [7:0] sprite, input [63:0] display_line);
     reg vf;
     reg [63:0] sprite_line;
@@ -239,9 +245,9 @@ always @(posedge rst or posedge instruction_clk) begin: instruction_clk_block
                     VN[nibble_1] <= VN[nibble_1] ^ VN[nibble_2];
                 end
                 4'h4 : begin
-                    // x += Vy (sets carry VF)
-                    VN[nibble_1] <=VN[nibble_1] + VN[nibble_2];
-                    VN[15] <= {7'b0, {{1'b0, VN[nibble_1]} + {1'b0, VN[nibble_2]}}[8]};
+                    // Vx += Vy (sets carry VF)
+                    VN[nibble_1] <= VN[nibble_1] + VN[nibble_2];
+                    VN[15] <= {7'b0, carry_bit_from_add(VN[nibble_1], VN[nibble_2])};
                 end
                 4'h5 : begin
                     // Vx -= Vy (sets borrow VF)

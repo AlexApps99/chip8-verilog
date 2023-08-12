@@ -71,7 +71,7 @@ always @(posedge pixel_clk_7_425mhz or posedge rst) begin: vga_pixel
         if (!in_vblank && !in_hblank) begin
             // Draw pixel data corresponding to current position on screen
             // Each data pixel is shown on 2 horizontal VGA pixels and 20 vertical VGA pixels
-            color <= display[display_index(6'((h_px_counter-DATA_STARTS_H_PX[H_PX_COUNTER_SIZE-1:0]) >> 1), 5'(((v_ln_counter - DATA_STARTS_V_LN[V_LN_COUNTER_SIZE-1:0]) >> 2)/5))];
+            color <= display[display_index((h_px_counter-DATA_STARTS_H_PX[H_PX_COUNTER_SIZE-1:0]) >> 1, ((v_ln_counter - DATA_STARTS_V_LN[V_LN_COUNTER_SIZE-1:0]) >> 2)/5)];
         end else begin
             // Not in a drawable area, so just do black
             color <= 0;
