@@ -1,6 +1,7 @@
 a.out
 /db/
 /output_files/
-*.ch8.hex
+#*.ch8.hex
 *.pdf
 /obj_dir/
+*.bak

@@ -9,7 +9,7 @@ module chip8 (
     output reg clear_newest_key_down,
     input wire [4:0] newest_key_down,
     // Display data (64x32, row-major)
-    output reg [2047:0] display,
+    output reg [63:0] display [31:0],
     output wire buzzer
 );
 
@@ -45,7 +45,7 @@ function carry_bit_from_add(input [7:0] a, input [7:0] b);
     carry_bit_from_add = add_result[8];
 endfunction
 
-function [64:0] draw_line(input [5:0] x, input [7:0] sprite, input [63:0] display_line);
+function draw_line(input [5:0] x, input [7:0] sprite, inout [63:0] display_line);
     reg vf;
     reg [63:0] sprite_line;
     begin
@@ -55,43 +55,56 @@ function [64:0] draw_line(input [5:0] x, input [7:0] sprite, input [63:0] displa
         // Calculate VF for this row
         vf = (display_line & sprite_line) != 0;
         // Generate line data
-        draw_line = {vf, (display_line ^ sprite_line)};
+        display_line = display_line ^ sprite_line;
+        draw_line = vf;
     end
 endfunction
 
 // for debugging
 `ifdef VERILATOR
-task show_display(input [2047:0] display);
+task show_display(input [63:0] display [31:0]);
     integer row;
     begin
         for (row = 0; row < 32; row = row + 1) begin
-            $display("%b", display[row << 6 +: 64]);
+            $display("%b", display[row]);
         end
     end
 endtask
 `endif
 
+`ifndef VERILATOR
 // 8-bit VF flag, new display data
-function [2055:0] draw_all(input [5:0] x, input [4:0] y, input [15*8-1:0] sprite, input [2047:0] display);
+function draw_all(input [5:0] x, input [4:0] y, input [15*8-1:0] sprite, inout [63:0] display [31:0]);
     integer i;
     reg vf;
-    reg [2047:0] display_2;
-    `ifdef VERILATOR
-    $display("DRW X:%H Y:%H S:%H", x, y, sprite);
-    `endif
     vf = 1'b0;
-    display_2 = display;
 
     for (i = 0; i < 15; i = i + 1) begin
-        reg vf_temp;
-        {vf_temp, display_2[{y + i[3:0], 6'b0} +: 64]} = draw_line(x, sprite[{i[3:0], 3'b0} +: 8], display_2[{y + i[3:0], 6'b0} +: 64]);
-        vf = vf | vf_temp;
+        vf = vf | draw_line(x, sprite[{i[3:0], 3'b0} +: 8], display[y + i[3:0]]);
     end
-    `ifdef VERILATOR
-    show_display(display_2);
-    `endif
-    draw_all = {{7'b0, vf}, display_2};
+    draw_all = vf;
 endfunction
+
+`else
+
+// 8-bit VF flag, new display data (modified version for Verilator simulation)
+function draw_all(input [5:0] x, input [4:0] y, input [15*8-1:0] sprite, inout [63:0] display [31:0]);
+    integer i;
+    reg vf;
+    // Temporarily save line to work around Verilator limitation
+    reg [63:0] display_line_data;
+    $display("DRW X:%H Y:%H S:%H", x, y, sprite);
+    vf = 1'b0;
+
+    for (i = 0; i < 15; i = i + 1) begin
+        display_line_data = display[y + i[3:0]];
+        vf = vf | draw_line(x, sprite[{i[3:0], 3'b0} +: 8], display_line_data);
+        display[y + i[3:0]] = display_line_data;
+    end
+    show_display(display);
+    draw_all = vf;
+endfunction
+`endif
 
 localparam STACK_SIZE = 5'd16;
 
@@ -99,10 +112,10 @@ localparam STACK_SIZE = 5'd16;
 reg [7:0] memory [4095:0];
 
 // 16 8-bit registers V0 to VF
-reg [15:0][7:0] VN;
+reg [7:0] VN [15:0];
 
 // Stack, has 16 addresses
-reg [STACK_SIZE-1:0][11:0] stack;
+reg [11:0] stack [STACK_SIZE-1:0];
 
 // Stack pointer (points to the first empty slot of the stack)
 reg [$clog2(STACK_SIZE)-1:0] stack_pointer;
@@ -145,17 +158,17 @@ always @(posedge rst or posedge instruction_clk) begin: instruction_clk_block
 
     if (rst) begin
         // Clear display
-        display <= 'b0;
+        display <= '{default:'b0};
 
         // Clear and initialize memory
         memory <= '{default: '0};
         // TODO load from SD card
-        $readmemh("character_data.hex", memory, 80, 80 + 80);
-        $readmemh("chip8-test-suite/bin/1-chip8-logo.ch8.hex", memory, 512);
+        $readmemh("character_data.hex", memory, 80, 80 + 80 - 1);
+        $readmemh("ibm.ch8.hex", memory, 512);
 
-        VN <= '0;
+        VN <= '{default:'0};
 
-        stack <= '0;
+        stack <= '{default:'0};
 
         stack_pointer <= 4'b0;
         I <= 12'b0;
@@ -186,7 +199,7 @@ always @(posedge rst or posedge instruction_clk) begin: instruction_clk_block
             4'h0 : case (op)
                 16'hE0 : begin
                     // Clear display
-                    display <= 'b0;
+                    display <= '{default:'b0};
                 end
                 16'hEE : begin
                     // Return from subroutine
@@ -299,7 +312,7 @@ always @(posedge rst or posedge instruction_clk) begin: instruction_clk_block
                 // Draw (sets VF)
                 // Up to 15 lines of 8 pixels
                 // Really stupid implementation, could probably be done better with SystemVerilog
-                {VN[15], display} <= draw_all(VN[nibble_1][5:0], VN[nibble_2][4:0], ({
+                VN[15] <= {7'b0, draw_all(VN[nibble_1][5:0], VN[nibble_2][4:0], ({
                     memory[I+14],
                     memory[I+13],
                     memory[I+12],
@@ -315,7 +328,7 @@ always @(posedge rst or posedge instruction_clk) begin: instruction_clk_block
                     memory[I+2],
                     memory[I+1],
                     memory[I]
-                }) & (~({15{8'hFF}} << {nibble_3, 3'b0})), display);
+                }) & (~({15{8'hFF}} << {nibble_3, 3'b0})), display)};
             end
             4'hE : case (byte_1)
                 8'h9E : begin
@@ -371,6 +384,7 @@ always @(posedge rst or posedge instruction_clk) begin: instruction_clk_block
                 8'h55 : begin
                     // Stores V0 to VX to memory from I
                     `ifdef VERILATOR
+                    // Use blocking assignment to work around Verilator limitations
                     for (i = 0; i <= nibble_1[3:0]; i = i + 1) begin
                         memory[I + {8'b0, i[3:0]}] = VN[i[3:0]];
                     end
@@ -383,9 +397,16 @@ always @(posedge rst or posedge instruction_clk) begin: instruction_clk_block
                 end
                 8'h65 : begin
                     // Fills V0 to VX with memory from I
+                    `ifdef VERILATOR
+                    // Use blocking assignment to work around Verilator limitations
+                    for (j = 0; j <= nibble_1[3:0]; j = j + 1) begin
+                        VN[j[3:0]] = memory[I + {8'b0, j[3:0]}];
+                    end
+                    `else
                     for (j = 0; j <= nibble_1[3:0]; j = j + 1) begin
                         VN[j[3:0]] <= memory[I + {8'b0, j[3:0]}];
                     end
+                    `endif
                     //VN[0 +: nibble_1[3:0]] <= memory[I +: nibble_1[3:0]];
                 end
                 default : begin end

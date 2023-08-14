@@ -9,7 +9,7 @@ wire [15:0] input_keys;
 assign input_keys = 16'b0;
 wire [4:0] newest_key_down;
 assign newest_key_down = 5'd16;
-wire [2047:0] display;
+wire [63:0] display [31:0];
 wire buzzer;
 
 
@@ -38,9 +38,9 @@ initial begin: tb_block
     #926
 
     // hack
-    $readmemh("character_data.hex", chip8_inst.memory, 80, 80 + 80);
-    $readmemh("chip8-test-suite/bin/4-flags.ch8.hex", chip8_inst.memory, 512);
-    $display("PC:%H OP:%H VN:%H I:%H SP:%H", chip8_inst.PC, chip8_inst.op, chip8_inst.VN, chip8_inst.I, chip8_inst.stack_pointer);
+    $readmemh("character_data.hex", chip8_inst.memory, 80, 80 + 80 - 1);
+    $readmemh("ibm.ch8.hex", chip8_inst.memory, 512);
+    $display("PC:%H OP:%H VN:%H I:%H SP:%H", chip8_inst.PC, chip8_inst.op, chip8_inst.VN[0], chip8_inst.I, chip8_inst.stack_pointer);
 
     #926
 
@@ -50,7 +50,7 @@ initial begin: tb_block
 
         #926
 
-        $display("PC:%H OP:%H VN:%H I:%H SP:%H", chip8_inst.PC, chip8_inst.op, chip8_inst.VN, chip8_inst.I, chip8_inst.stack_pointer);
+        $display("PC:%H OP:%H VN:%H I:%H SP:%H", chip8_inst.PC, chip8_inst.op, chip8_inst.VN[0], chip8_inst.I, chip8_inst.stack_pointer);
 
         chip8_instruction_clk_540hz = 0;
     end

@@ -5,7 +5,7 @@ module vga(
     // Clock for each pixel, should be 7.425MHz for this set of timings
     input wire pixel_clk_7_425mhz,
     // Display data (64x32, row-major)
-    input wire [2047:0] display,
+    input wire [63:0] display [31:0],
     // Color signal output (black/white)
     output reg color,
     // Horizontal sync (low during sync pulse)
@@ -56,9 +56,9 @@ assign vsync = (v_ln_counter >= SYNC_PULSE_V_LN);
 assign in_hblank = !(h_px_counter >= DATA_STARTS_H_PX && h_px_counter < DATA_ENDS_H_PX);
 assign in_vblank = !(v_ln_counter >= DATA_STARTS_V_LN && v_ln_counter < DATA_ENDS_V_LN);
 
-function [10:0] display_index(input [5:0] h_offset, input [4:0] v_offset);
+function get_pixel(input [5:0] h_offset, input [4:0] v_offset, input [63:0] display [31:0]);
     // h_offset is reversed because the left-most pixel is the most significant byte of the line
-    display_index = {v_offset, ~h_offset};
+    get_pixel = display[v_offset][~h_offset];
 endfunction
 
 always @(posedge pixel_clk_7_425mhz or posedge rst) begin: vga_pixel
@@ -71,7 +71,7 @@ always @(posedge pixel_clk_7_425mhz or posedge rst) begin: vga_pixel
         if (!in_vblank && !in_hblank) begin
             // Draw pixel data corresponding to current position on screen
             // Each data pixel is shown on 2 horizontal VGA pixels and 20 vertical VGA pixels
-            color <= display[display_index((h_px_counter-DATA_STARTS_H_PX[H_PX_COUNTER_SIZE-1:0]) >> 1, ((v_ln_counter - DATA_STARTS_V_LN[V_LN_COUNTER_SIZE-1:0]) >> 2)/5)];
+            color <= get_pixel((h_px_counter-DATA_STARTS_H_PX[H_PX_COUNTER_SIZE-1:0]) >> 1, ((v_ln_counter - DATA_STARTS_V_LN[V_LN_COUNTER_SIZE-1:0]) >> 2)/5, display);
         end else begin
             // Not in a drawable area, so just do black
             color <= 0;

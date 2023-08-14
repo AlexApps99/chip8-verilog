@@ -56,7 +56,7 @@ wire [4:0] newest_key_down;
 wire clear_newest_key_down;
 wire [15:0] input_keys;
 // Display data (64x32, row-major)
-wire [2047:0] display;
+wire [63:0] display [31:0];
 
 // Buzzer clock, should be a comfortably audible tone
 wire buzzer_clk;
