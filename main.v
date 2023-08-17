@@ -14,7 +14,7 @@ module main(
     input wire vga_pixel_clk_7_425mhz,
 
     // PS/2 keyboard data pin
-    inout wire ps2_data_pin,
+    input wire ps2_data_pin,
     // PS/2 keyboard clock pin
     inout wire ps2_clk_pin,
 
@@ -67,7 +67,6 @@ assign buzzer_pwm = buzzer_clk & buzzer;
 
 // VGA graphics module
 vga vga_inst(
-    .rst(rst),
     .pixel_clk_7_425mhz(vga_pixel_clk_7_425mhz),
     // 2D array of black/white bits
     .display(display),
@@ -80,7 +79,6 @@ vga vga_inst(
 
 // PS/2 keyboard module
 ps2_kb ps2_kv_inst(
-    .rst(rst),
     .clk(ps2_clk_12_5khz),
     .data_pin(ps2_data_pin),
     .clk_pin(ps2_clk_pin),
@@ -91,7 +89,6 @@ ps2_kb ps2_kv_inst(
 
 // Chip-8 module
 chip8 chip8_inst(
-    .rst(rst),
     .instruction_clk(chip8_instruction_clk_540hz),
     .input_keys(input_keys),
     .clear_newest_key_down(clear_newest_key_down),

@@ -1,3 +1,3 @@
 #!/bin/bash
 
-verilator -O3 --timing --binary tb.v -Wno-TIMESCALEMOD && obj_dir/Vtb
+verilator --timing --binary tb.v -Wno-TIMESCALEMOD && obj_dir/Vtb

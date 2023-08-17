@@ -1,13 +1,12 @@
 // Very basic, primitive PS/2 implementation.
 // Doesn't support resetting the keyboard, which is a bit problematic.
 module ps2_kb(
-    input wire rst,
     input wire clk,
-    inout wire data_pin,
+    input wire data_pin,
     inout wire clk_pin,
-    output reg [15:0] input_keys,
+    output reg [15:0] input_keys = '0,
     // The most recent key that's being held (or 16 as sentinel value for no key)
-    output reg [4:0] newest_key_down,
+    output reg [4:0] newest_key_down = 5'd16,
     input wire clear_newest_key_down
 );
 
@@ -49,26 +48,18 @@ function [4:0] keycode(input [7:0] ps2_code);
     endcase
 endfunction
 
-reg prev_byte_was_release;
-reg parity_fail;
-reg [7:0] current_byte;
-reg [4:0] current_keycode;
+reg prev_byte_was_release = '0;
+reg parity_fail = '0;
+reg [7:0] current_byte = '0;
+reg [4:0] current_keycode = 5'd16;
 
 // 0 = before Start bit, 1 to 8 = before 8 bits, 9 = before parity bit, 10 = before stop bit (and repeat)
 reg [3:0] bit_counter;
 
 assign clk_pin = clk;
 
-always @(negedge clk or posedge rst or posedge clear_newest_key_down) begin: ps2_block
-    if (rst) begin
-        bit_counter <= 0;
-        current_byte <= 0;
-        prev_byte_was_release <= 0;
-        parity_fail <= 0;
-        input_keys <= 0;
-        newest_key_down <= 16;
-        current_keycode <= 16;
-    end else if (clear_newest_key_down) begin
+always @(negedge clk or posedge clear_newest_key_down) begin: ps2_block
+    if (clear_newest_key_down) begin
         newest_key_down <= 16;
     end else begin
         bit_counter <= bit_counter + 4'b1;

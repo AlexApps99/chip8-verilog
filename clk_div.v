@@ -13,7 +13,7 @@ module clk_div #(
 );
 
 // Counts number of input clocks
-reg [$clog2(DIVISOR)-1:0] counter;
+reg [$clog2(DIVISOR)-1:0] counter = '0;
 
 // Clock should be high if counter is < 50%
 assign clk_out = counter < (DIVISOR >> 1);

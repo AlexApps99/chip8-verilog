@@ -1,17 +1,16 @@
 // Generates a 720p widescreen 60fps VGA signal from display data
 module vga(
-    // Resets the VGA signal
-    input wire rst,
     // Clock for each pixel, should be 7.425MHz for this set of timings
     input wire pixel_clk_7_425mhz,
     // Display data (64x32, row-major)
     input wire [63:0] display [31:0],
     // Color signal output (black/white)
-    output reg color,
+    output reg color = '0,
     // Horizontal sync (low during sync pulse)
     output wire hsync,
     // Vertical sync (low during sync pulse)
     output wire vsync,
+    // True if not in region where display is drawn
     output wire in_hblank,
     output wire in_vblank
 );
@@ -47,8 +46,8 @@ localparam H_PX_COUNTER_SIZE = $clog2(WHOLE_LINE_H_PX);
 localparam V_LN_COUNTER_SIZE = $clog2(WHOLE_FRAME_V_LN);
 
 // Counters for the current position on the screen
-reg [H_PX_COUNTER_SIZE-1:0] h_px_counter;
-reg [V_LN_COUNTER_SIZE-1:0] v_ln_counter;
+reg [H_PX_COUNTER_SIZE-1:0] h_px_counter = '0;
+reg [V_LN_COUNTER_SIZE-1:0] v_ln_counter = '0;
 
 // HSync/VSync should be low during the sync pulse region
 assign hsync = (h_px_counter >= SYNC_PULSE_H_PX);
@@ -61,13 +60,8 @@ function get_pixel(input [5:0] h_offset, input [4:0] v_offset, input [63:0] disp
     get_pixel = display[v_offset][~h_offset];
 endfunction
 
-always @(posedge pixel_clk_7_425mhz or posedge rst) begin: vga_pixel
-    if (rst) begin
-        // Set counters/color to zero on reset
-        h_px_counter <= 0;
-        v_ln_counter <= 0;
-        color <= 0;
-    end else begin
+always @(posedge pixel_clk_7_425mhz) begin: vga_pixel
+    begin
         if (!in_vblank && !in_hblank) begin
             // Draw pixel data corresponding to current position on screen
             // Each data pixel is shown on 2 horizontal VGA pixels and 20 vertical VGA pixels

@@ -1,15 +1,17 @@
 //`include "rng.v"
 //`include "bcd.v"
 
+// Some notes on RAM for my future reference:
+// https://www.intel.com/programmable/technical-pdfs/654378.pdf page 31 has a table of the difference sizes for different RAM block types
+
 module chip8 (
-    input wire rst,
     // Pulses at 60 * 9 Hz per instruction?
     input wire instruction_clk,
     input wire [15:0] input_keys,
-    output reg clear_newest_key_down,
+    output reg clear_newest_key_down = '0,
     input wire [4:0] newest_key_down,
     // Display data (64x32, row-major)
-    output reg [63:0] display [31:0],
+    output reg [63:0] display [31:0] = '{default: '0} /* synthesis ramstyle = "M10K" */,
     output wire buzzer
 );
 
@@ -108,35 +110,41 @@ endfunction
 
 localparam STACK_SIZE = 5'd16;
 
-// RAM (note that the first 512 bytes are unused)
-reg [7:0] memory [4095:0];
+// RAM (note that the first 512 bytes are implementation-defined)
+reg [7:0] memory [4095:0] /* synthesis ramstyle = "M10K" */;
+// Initialize memory
+initial begin
+    memory = '{default: '0};
+    // TODO load from SD card
+    $readmemh("character_data.hex", memory, 80, 80 + 80 - 1);
+    $readmemh("ibm.ch8.hex", memory, 512);
+end
 
 // 16 8-bit registers V0 to VF
-reg [7:0] VN [15:0];
+reg [7:0] VN [15:0] = '{default: '0} /* synthesis ramstyle = "MLAB" */;
 
 // Stack, has 16 addresses
-reg [11:0] stack [STACK_SIZE-1:0];
+reg [11:0] stack [STACK_SIZE-1:0] = '{default: '0} /* synthesis ramstyle = "MLAB" */;
 
 // Stack pointer (points to the first empty slot of the stack)
-reg [$clog2(STACK_SIZE)-1:0] stack_pointer;
+reg [$clog2(STACK_SIZE)-1:0] stack_pointer = '0;
 
 // Address register I
-reg [11:0] I;
+reg [11:0] I = '0;
 
 // Program counter
-reg [11:0] PC;
+reg [11:0] PC = 12'd512;
 
 // Delay timers, decremented at 60Hz until zero
-reg [3:0] timer_decrement_counter;
-reg [7:0] delay_timer;
-reg [7:0] sound_timer;
+reg [3:0] timer_decrement_counter = '0;
+reg [7:0] delay_timer = '0;
+reg [7:0] sound_timer = '0;
 
 assign buzzer = (sound_timer != 8'b0);
 
 wire [7:0] rand_num;
 rng rng_inst (
     .clk(instruction_clk),
-    .rst(rst),
     .x(rand_num)
 );
 
@@ -153,32 +161,10 @@ assign op = {byte_0, byte_1};
 
 
 // Synchronous logic (should avoid blocking assignment)
-always @(posedge rst or posedge instruction_clk) begin: instruction_clk_block
+always @(posedge instruction_clk) begin: instruction_clk_block
     integer i, j;
 
-    if (rst) begin
-        // Clear display
-        display <= '{default:'b0};
-
-        // Clear and initialize memory
-        memory <= '{default: '0};
-        // TODO load from SD card
-        $readmemh("character_data.hex", memory, 80, 80 + 80 - 1);
-        $readmemh("ibm.ch8.hex", memory, 512);
-
-        VN <= '{default:'0};
-
-        stack <= '{default:'0};
-
-        stack_pointer <= 4'b0;
-        I <= 12'b0;
-        PC <= 512;
-        timer_decrement_counter <= 0;
-        delay_timer <= 8'b0;
-        sound_timer <= 8'b0;
-
-        clear_newest_key_down <= 0;
-    end else begin
+    begin
         if (timer_decrement_counter >= 8) begin
             if (delay_timer != 8'b0) begin
                 delay_timer <= delay_timer - '1;

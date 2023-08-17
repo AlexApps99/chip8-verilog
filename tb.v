@@ -2,7 +2,6 @@
 
 module tb;
 
-reg rst;
 reg chip8_instruction_clk_540hz;
 
 wire [15:0] input_keys;
@@ -15,7 +14,6 @@ wire buzzer;
 
 // Chip-8 module
 chip8 chip8_inst(
-    .rst(rst),
     .instruction_clk(chip8_instruction_clk_540hz),
     .input_keys(input_keys),
     .clear_newest_key_down(),
@@ -29,17 +27,12 @@ initial begin: tb_block
 
 
     chip8_instruction_clk_540hz = 0;
-    rst = 0;
-    #926
-    rst = 1;
-    #926
 
-    rst = 0;
     #926
 
     // hack
-    $readmemh("character_data.hex", chip8_inst.memory, 80, 80 + 80 - 1);
-    $readmemh("ibm.ch8.hex", chip8_inst.memory, 512);
+    //$readmemh("character_data.hex", chip8_inst.memory, 80, 80 + 80 - 1);
+    //$readmemh("ibm.ch8.hex", chip8_inst.memory, 512);
     $display("PC:%H OP:%H VN:%H I:%H SP:%H", chip8_inst.PC, chip8_inst.op, chip8_inst.VN[0], chip8_inst.I, chip8_inst.stack_pointer);
 
     #926
