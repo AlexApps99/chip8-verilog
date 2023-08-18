@@ -16,7 +16,7 @@ module main(
     // PS/2 keyboard data pin
     input wire ps2_data_pin,
     // PS/2 keyboard clock pin
-    inout wire ps2_clk_pin,
+    output wire ps2_clk_pin,
 
     // VGA R/G/B pin (black/white, effectively)
     output wire vga_color,

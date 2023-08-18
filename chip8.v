@@ -124,7 +124,7 @@ end
 reg [7:0] VN [15:0] = '{default: '0} /* synthesis ramstyle = "MLAB" */;
 
 // Stack, has 16 addresses
-reg [11:0] stack [STACK_SIZE-1:0] = '{default: '0} /* synthesis ramstyle = "MLAB" */;
+reg [11:0] stack [STACK_SIZE-1:0] = '{default: '0} /* synthesis ramstyle = "no_rw_check, MLAB" */;
 
 // Stack pointer (points to the first empty slot of the stack)
 reg [$clog2(STACK_SIZE)-1:0] stack_pointer = '0;

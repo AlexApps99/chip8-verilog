@@ -3,7 +3,7 @@
 module ps2_kb(
     input wire clk,
     input wire data_pin,
-    inout wire clk_pin,
+    output wire clk_pin,
     output reg [15:0] input_keys = '0,
     // The most recent key that's being held (or 16 as sentinel value for no key)
     output reg [4:0] newest_key_down = 5'd16,
